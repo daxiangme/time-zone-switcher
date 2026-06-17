@@ -1,44 +1,64 @@
 # Time Zone Switcher
 
+[![CI](https://github.com/daxiangme/time-zone-switcher/actions/workflows/ci.yml/badge.svg)](https://github.com/daxiangme/time-zone-switcher/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/daxiangme/time-zone-switcher?display_name=tag)](https://github.com/daxiangme/time-zone-switcher/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111827)
+![Swift 6.3+](https://img.shields.io/badge/Swift-6.3%2B-f05138)
+
 [中文说明](README.zh-CN.md)
 
-Time Zone Switcher is a lightweight macOS 26+ menu bar app for temporarily switching the system time zone and restoring it later.
+A macOS menu bar app for temporarily switching the system time zone and restoring it later.
 
-It is designed for people who need to test products, schedules, calendars, subscriptions, or region-sensitive workflows under another time zone without permanently changing their normal system setup.
+Use it when you need to test calendar, schedule, subscription, localization, or region-sensitive behavior without permanently changing your normal system setup.
+
+[Download the latest release](https://github.com/daxiangme/time-zone-switcher/releases/latest)
+
+![Time Zone Switcher preview](docs/assets/preview.svg)
+
+## Why It Exists
+
+Developers, QA engineers, product builders, and support teams often need to answer questions like:
+
+- Does this calendar event render correctly in Pacific Time?
+- Does a scheduled workflow cross midnight in another region?
+- Does a subscription, billing period, or date boundary behave correctly outside my local time zone?
+- Can I reproduce a customer issue that only appears in another time zone?
+
+Time Zone Switcher makes that workflow fast and reversible from the menu bar.
 
 ## Features
 
-- Lives in the macOS menu bar without a Dock icon.
+- Menu bar only: no Dock icon.
 - Search and select any IANA time zone, such as `America/Los_Angeles`, `Europe/London`, or `Asia/Tokyo`.
-- Shows localized time zone names while keeping the IANA identifier visible.
+- Localized time zone display names with the IANA identifier kept visible.
 - Toggle on to record the current system time zone and switch to the selected target.
 - Toggle off to restore the recorded original time zone.
-- Persists the selected target time zone and restore state with `UserDefaults`.
-- Uses native SwiftUI controls and macOS material styling.
+- Native SwiftUI controls and macOS material styling.
+
+## Privacy and Security
+
+- No analytics.
+- No network requests.
+- No background polling jobs.
+- Administrator permission is requested only when you toggle the override on or off.
+- The system command used is:
+
+```bash
+systemsetup -settimezone <IANA time zone identifier>
+```
 
 ## Installation
 
-Download the latest release archive from GitHub Releases, unzip it, and move `Time Zone Switcher.app` to `/Applications`.
+Download the latest release archive, unzip it, and move `Time Zone Switcher.app` to `/Applications`.
 
-The release build is currently not notarized. On first launch, macOS may block it because it was downloaded from the internet. To open it:
+This project currently publishes unsigned, non-notarized open-source builds. On first launch, macOS may block the app because it was downloaded from the internet. To open it:
 
 1. Open **System Settings**.
 2. Go to **Privacy & Security**.
 3. Find the blocked app message and choose **Open Anyway**.
 
 You can also Control-click the app and choose **Open**.
-
-## Why Administrator Permission Is Required
-
-macOS requires administrator authorization to change the system time zone. Time Zone Switcher asks for administrator permission only when you toggle the override on or off.
-
-The app uses:
-
-```bash
-systemsetup -settimezone <IANA time zone identifier>
-```
-
-The app does not collect data, does not send network requests, and does not run hidden polling jobs.
 
 ## Build From Source
 
@@ -54,12 +74,6 @@ Build the app bundle:
 Scripts/build_app.sh
 ```
 
-The local app bundle is created at:
-
-```text
-dist/Time Zone Switcher.app
-```
-
 Run it:
 
 ```bash
@@ -72,21 +86,18 @@ Create a release archive:
 Scripts/package_release.sh
 ```
 
-The script creates a zip archive and SHA256 checksum under `dist/releases`.
+## Roadmap
 
-## Development
+- Favorite time zones.
+- Menu bar compact status.
+- Keyboard shortcuts.
+- Optional DMG packaging.
+- Optional notarized builds.
+- More localization.
 
-Run tests:
+## Contributing
 
-```bash
-swift test
-```
-
-Build without packaging:
-
-```bash
-swift build -c release --product TimeZoneBar
-```
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
