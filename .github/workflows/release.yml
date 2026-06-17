@@ -48,17 +48,11 @@ jobs:
             echo '```'
           } >> "$generated_notes"
 
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release upload "$TAG_NAME" "$zip_path" "$sha_path" --clobber
-            gh release edit "$TAG_NAME" \
-              --title "Time Zone Switcher ${TAG_NAME}" \
-              --notes-file "$generated_notes" \
-              --latest
-          else
-            gh release create "$TAG_NAME" \
-              "$zip_path" \
-              "$sha_path" \
-              --title "Time Zone Switcher ${TAG_NAME}" \
-              --notes-file "$generated_notes" \
-              --latest
-          fi
+          gh release delete "$TAG_NAME" --yes || true
+
+          gh release create "$TAG_NAME" \
+            "$zip_path" \
+            "$sha_path" \
+            --title "Time Zone Switcher ${TAG_NAME}" \
+            --notes-file "$generated_notes" \
+            --latest
