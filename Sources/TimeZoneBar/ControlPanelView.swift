@@ -15,9 +15,10 @@ struct ControlPanelView: View {
                 targetPanel
                 errorPanel
             }
-            .padding(16)
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 16)
+            .padding(.top, 17)
+            .padding(.bottom, 14)
+            .frame(maxHeight: .infinity, alignment: .top)
 
             footer
         }
@@ -64,7 +65,9 @@ struct ControlPanelView: View {
             .help(L10n.string(viewModel.isEnabled ? "Restore previous time zone" : "Switch to selected time zone"))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.top, 18)
+        .padding(.bottom, 14)
+        .layoutPriority(1)
     }
 
     private var statusPanel: some View {
@@ -114,7 +117,7 @@ struct ControlPanelView: View {
                 }
                 .padding(.vertical, 2)
             }
-            .frame(height: 260)
+            .frame(minHeight: 178, maxHeight: .infinity)
         }
     }
 
@@ -155,9 +158,9 @@ struct ControlPanelView: View {
             .buttonStyle(FooterButtonStyle())
         }
         .padding(.horizontal, 16)
-        .frame(height: 34, alignment: .center)
-        .padding(.top, 9)
-        .padding(.bottom, 17)
+        .padding(.top, 11)
+        .padding(.bottom, 21)
+        .layoutPriority(1)
         .overlay(alignment: .top) {
             Divider()
         }
