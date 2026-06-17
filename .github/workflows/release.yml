@@ -32,14 +32,33 @@ jobs:
           zip_path="$(ls dist/releases/*.zip)"
           sha_path="${zip_path}.sha256"
           notes_file="RELEASE_NOTES_${TAG_NAME}.md"
+          generated_notes="dist/releases/release-notes.md"
 
           if [ ! -f "$notes_file" ]; then
             notes_file="CHANGELOG.md"
           fi
 
-          gh release create "$TAG_NAME" \
-            "$zip_path" \
-            "$sha_path" \
-            --title "Time Zone Switcher ${TAG_NAME}" \
-            --notes-file "$notes_file" \
-            --latest
+          cp "$notes_file" "$generated_notes"
+          {
+            echo
+            echo "## SHA256"
+            echo
+            echo '```text'
+            cat "$sha_path"
+            echo '```'
+          } >> "$generated_notes"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" "$zip_path" "$sha_path" --clobber
+            gh release edit "$TAG_NAME" \
+              --title "Time Zone Switcher ${TAG_NAME}" \
+              --notes-file "$generated_notes" \
+              --latest
+          else
+            gh release create "$TAG_NAME" \
+              "$zip_path" \
+              "$sha_path" \
+              --title "Time Zone Switcher ${TAG_NAME}" \
+              --notes-file "$generated_notes" \
+              --latest
+          fi
