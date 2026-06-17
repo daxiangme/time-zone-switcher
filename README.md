@@ -14,7 +14,7 @@ Use it when you need to test calendar, schedule, subscription, localization, or 
 
 [Download the latest release](https://github.com/daxiangme/time-zone-switcher/releases/latest)
 
-![Time Zone Switcher preview](docs/assets/preview.svg)
+![Time Zone Switcher screenshot](docs/assets/screenshot-en.png)
 
 ## Why It Exists
 

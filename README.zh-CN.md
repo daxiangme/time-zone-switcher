@@ -14,7 +14,7 @@
 
 [下载最新版本](https://github.com/daxiangme/time-zone-switcher/releases/latest)
 
-![时区切换器预览](docs/assets/preview.svg)
+![时区切换器截图](docs/assets/screenshot-zh-Hans.png)
 
 ## 为什么需要它
 
