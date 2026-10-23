@@ -90,30 +90,14 @@ struct ControlPanelView: View {
             .padding(.horizontal, 24)
         } else {
             List {
-                ForEach(viewModel.savedIdentifiers, id: \.self) { identifier in
+                ForEach(viewModel.clockRows) { row in
                     TimeZoneClockRow(
-                        identifier: identifier,
-                        title: viewModel.displayName(for: identifier),
-                        face: viewModel.clockFace(for: identifier),
-                        isSystem: identifier == viewModel.systemIdentifier,
-                        isHome: viewModel.isEnabled && identifier == viewModel.homeIdentifier,
-                        isPinned: pinnedIdentifier == identifier,
-                        canDelete: viewModel.canRemove(identifier),
-                        systemBadge: viewModel.localized("System"),
-                        homeBadge: viewModel.localized("Home"),
+                        row: row,
                         isDisabled: viewModel.isWorking,
-                        setSystemTitle: viewModel.localized("Set as System Time Zone"),
-                        pinTitle: viewModel.localized("Show in Menu Bar"),
-                        renameTitle: viewModel.localized("Rename"),
-                        deleteTitle: viewModel.localized("Remove Time Zone"),
-                        onApply: { viewModel.apply(identifier) },
-                        onPin: { viewModel.pin(identifier) },
-                        onRename: {
-                            renameText = viewModel.displayName(for: identifier)
-                            renameIdentifier = identifier
-                        },
-                        onDelete: { viewModel.remove(identifier) }
-                    )
+                        localized: viewModel.localized
+                    ) { action in
+                        perform(action, on: row)
+                    }
                     .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -127,11 +111,18 @@ struct ControlPanelView: View {
         }
     }
 
-    private var pinnedIdentifier: String? {
-        if case .pinned(let identifier) = viewModel.menuBarMode {
-            return identifier
+    private func perform(_ action: ClockRowAction, on row: ClockRowModel) {
+        switch action {
+        case .setSystem:
+            viewModel.apply(row.identifier)
+        case .pin:
+            viewModel.pin(row.identifier)
+        case .rename:
+            renameText = row.title
+            renameIdentifier = row.identifier
+        case .remove:
+            viewModel.remove(row.identifier)
         }
-        return nil
     }
 
     private var searchPanel: some View {
@@ -235,42 +226,35 @@ struct ControlPanelView: View {
     }
 }
 
+private enum ClockRowAction {
+    case setSystem
+    case pin
+    case rename
+    case remove
+}
+
 private struct TimeZoneClockRow: View {
-    let identifier: String
-    let title: String
-    let face: TimeZoneClockFace?
-    let isSystem: Bool
-    let isHome: Bool
-    let isPinned: Bool
-    let canDelete: Bool
-    let systemBadge: String
-    let homeBadge: String
+    let row: ClockRowModel
     let isDisabled: Bool
-    let setSystemTitle: String
-    let pinTitle: String
-    let renameTitle: String
-    let deleteTitle: String
-    let onApply: () -> Void
-    let onPin: () -> Void
-    let onRename: () -> Void
-    let onDelete: () -> Void
+    let localized: (String) -> String
+    let onAction: (ClockRowAction) -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text(title)
+                    Text(row.title)
                         .font(.body)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    if isSystem {
-                        Badge(title: systemBadge)
+                    if row.isSystem {
+                        Badge(title: localized("System"))
                     }
-                    if isHome {
-                        Badge(title: homeBadge)
+                    if row.isHome {
+                        Badge(title: localized("Home"))
                     }
                 }
-                Text(identifier)
+                Text(row.identifier)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -281,17 +265,17 @@ private struct TimeZoneClockRow: View {
 
             VStack(alignment: .trailing, spacing: 1) {
                 HStack(spacing: 4) {
-                    if isPinned {
+                    if row.isPinned {
                         Image(systemName: "pin.fill")
                             .font(.caption2)
                             .foregroundStyle(Color.accentColor)
                     }
-                    Text(face?.timeText ?? "—")
+                    Text(row.timeText)
                 }
                     .font(.title3.monospacedDigit().weight(.semibold))
                     .lineLimit(1)
-                if let dateText = face?.dateText {
-                    Text(dateText)
+                if let dayText {
+                    Text(dayText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -303,11 +287,26 @@ private struct TimeZoneClockRow: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
         .background(
-            isSystem ? Color.accentColor.opacity(0.12) : Color.clear,
+            row.isSystem ? Color.accentColor.opacity(0.12) : Color.clear,
             in: RoundedRectangle(cornerRadius: 8, style: .continuous)
         )
         .contextMenu {
             rowActions
+        }
+    }
+
+    private var dayText: String? {
+        switch row.dayOffset {
+        case 0:
+            return nil
+        case -1:
+            return localized("Yesterday")
+        case 1:
+            return localized("Tomorrow")
+        case let days where days > 0:
+            return String(format: localized("In %d days"), days)
+        default:
+            return String(format: localized("%d days ago"), -row.dayOffset)
         }
     }
 
@@ -327,11 +326,11 @@ private struct TimeZoneClockRow: View {
 
     @ViewBuilder
     private var rowActions: some View {
-        Button(setSystemTitle, action: onApply)
-        Button(pinTitle, action: onPin)
-        Button(renameTitle, action: onRename)
-        Button(deleteTitle, action: onDelete)
-            .disabled(!canDelete)
+        Button(localized("Set as System Time Zone")) { onAction(.setSystem) }
+        Button(localized("Show in Menu Bar")) { onAction(.pin) }
+        Button(localized("Rename")) { onAction(.rename) }
+        Button(localized("Remove Time Zone")) { onAction(.remove) }
+            .disabled(!row.canRemove)
     }
 }
 

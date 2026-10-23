@@ -41,3 +41,7 @@
 "Could not read the current system time zone." = "无法读取当前系统时区。";
 "The system time zone command failed." = "系统时区命令执行失败。";
 "The home time zone can't be removed while the override is active." = "覆盖生效时不能删除本机时区。";
+"Yesterday" = "昨天";
+"Tomorrow" = "明天";
+"In %d days" = "%d 天后";
+"%d days ago" = "%d 天前";

@@ -28,6 +28,13 @@ Create a release archive:
 Scripts/package_release.sh
 ```
 
+Render UI snapshots (popover and settings, zh/en, dark/light) with fake state, without touching the system time zone or your saved settings:
+
+```bash
+Scripts/snapshot.sh            # writes to .build/snapshots
+Scripts/snapshot.sh docs/assets
+```
+
 ## Project Principles
 
 - Keep the app lightweight and menu-bar first.
@@ -65,6 +72,12 @@ swift test
 
 ```bash
 Scripts/build_app.sh
+```
+
+生成界面截图（弹出面板和设置窗口，中英文、深浅色），使用假数据，不会改系统时区或本机设置：
+
+```bash
+Scripts/snapshot.sh            # 输出到 .build/snapshots
 ```
 
 项目原则：

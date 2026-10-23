@@ -41,3 +41,7 @@
 "Could not read the current system time zone." = "Could not read the current system time zone.";
 "The system time zone command failed." = "The system time zone command failed.";
 "The home time zone can't be removed while the override is active." = "The home time zone can't be removed while the override is active.";
+"Yesterday" = "Yesterday";
+"Tomorrow" = "Tomorrow";
+"In %d days" = "In %d days";
+"%d days ago" = "%d days ago";

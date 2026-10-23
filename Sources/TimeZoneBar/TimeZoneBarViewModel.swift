@@ -102,26 +102,25 @@ final class TimeZoneBarViewModel: ObservableObject {
            !custom.isEmpty {
             return custom
         }
-        return TimeZoneCatalogEntry(identifier: identifier).displayName(locale: appLanguage.locale)
+        return TimeZoneCatalogEntry(identifier: identifier).localizedCityName(locale: appLanguage.locale)
     }
 
-    func clockFace(for identifier: String) -> TimeZoneClockFace? {
-        let systemTimeZone = TimeZone(identifier: systemIdentifier) ?? .current
-        return TimeZoneClock.face(
-            identifier: identifier,
+    var clockRows: [ClockRowModel] {
+        ClockRowModel.rows(
+            savedIdentifiers: savedIdentifiers,
+            systemIdentifier: systemIdentifier,
+            homeIdentifier: homeIdentifier,
+            isEnabled: isEnabled,
+            menuBarMode: menuBarMode,
+            customLabels: customLabels,
             at: now,
-            interfaceLanguage: appLanguage,
-            systemTimeZone: systemTimeZone,
-            format: timeDisplayFormat
+            format: timeDisplayFormat,
+            interfaceLanguage: appLanguage
         )
     }
 
     func isSaved(_ identifier: String) -> Bool {
         savedIdentifiers.contains(identifier)
-    }
-
-    func canRemove(_ identifier: String) -> Bool {
-        !(isEnabled && identifier == homeIdentifier)
     }
 
     func refresh() {

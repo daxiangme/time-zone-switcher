@@ -82,6 +82,23 @@ public struct TimeZoneCatalogEntry: Equatable {
             ?? timeZone.localizedName(for: .standard, locale: locale)
             ?? cityName
     }
+
+    /// The localized exemplar city, e.g. 洛杉矶 / Los Angeles. Zones without a city
+    /// (`UTC`, `Etc/GMT+5`) fall back to the localized zone name.
+    public func localizedCityName(locale: Locale = TimeZoneDisplayLocale.current) -> String {
+        guard identifier.contains("/"), !identifier.hasPrefix("Etc/"),
+              let timeZone = TimeZone(identifier: identifier)
+        else {
+            return displayName(locale: locale)
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "VVV"
+        let city = formatter.string(from: Date())
+        return city.isEmpty ? cityName : city
+    }
 }
 
 public enum TimeZoneDisplayLocale {
