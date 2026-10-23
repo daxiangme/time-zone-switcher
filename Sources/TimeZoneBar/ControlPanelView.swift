@@ -1,31 +1,50 @@
+import AppKit
 import SwiftUI
 import TimeZoneCore
 
 struct ControlPanelView: View {
     @ObservedObject var viewModel: TimeZoneBarViewModel
+    @Environment(\.openWindow) private var openWindow
+    @State private var isAdding = false
+    @State private var renameIdentifier: String?
+    @State private var renameText = ""
 
     var body: some View {
         VStack(spacing: 0) {
             header
-
             Divider()
-
-            VStack(spacing: 14) {
-                statusPanel
-                targetPanel
-                errorPanel
+            clockList
+                .frame(maxHeight: .infinity)
+            if isAdding {
+                searchPanel
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 17)
-            .padding(.bottom, 14)
-            .frame(maxHeight: .infinity, alignment: .top)
-
+            errorPanel
             footer
         }
         .background(.regularMaterial)
         .onAppear {
-            viewModel.refreshCurrentTimeZone()
+            viewModel.refresh()
         }
+        .alert(viewModel.localized("Rename"), isPresented: renamePresented) {
+            TextField(viewModel.localized("Name"), text: $renameText)
+            Button(viewModel.localized("Cancel"), role: .cancel) {}
+            Button(viewModel.localized("Save")) {
+                if let renameIdentifier {
+                    viewModel.setCustomLabel(renameText, for: renameIdentifier)
+                }
+            }
+        }
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(
+            get: { renameIdentifier != nil },
+            set: { isPresented in
+                if !isPresented {
+                    renameIdentifier = nil
+                }
+            }
+        )
     }
 
     private var header: some View {
@@ -42,83 +61,109 @@ struct ControlPanelView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.string("Time Zone"))
+                Text(viewModel.localized("Time Zone"))
                     .font(.headline)
-
-                Text(L10n.string(viewModel.isEnabled ? "Override active" : "System time"))
+                Text(viewModel.localized(viewModel.isEnabled ? "Override active" : "System time"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
-
-            Toggle(
-                "",
-                isOn: Binding(
-                    get: { viewModel.isEnabled },
-                    set: { viewModel.setEnabled($0) }
-                )
-            )
-            .toggleStyle(.switch)
-            .labelsHidden()
-            .disabled(viewModel.isWorking)
-            .help(L10n.string(viewModel.isEnabled ? "Restore previous time zone" : "Switch to selected time zone"))
         }
         .padding(.horizontal, 16)
-        .padding(.top, 18)
-        .padding(.bottom, 14)
-        .layoutPriority(1)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
     }
 
-    private var statusPanel: some View {
-        VStack(spacing: 10) {
-            InfoRow(
-                label: L10n.string("Current"),
-                title: viewModel.displayName(for: viewModel.currentIdentifier),
-                subtitle: viewModel.currentIdentifier,
-                systemImage: "location"
-            )
-            InfoRow(
-                label: L10n.string("Target"),
-                title: viewModel.displayName(for: viewModel.targetIdentifier),
-                subtitle: viewModel.targetIdentifier,
-                systemImage: "scope"
-            )
-
-            if let originalIdentifier = viewModel.originalIdentifier {
-                InfoRow(
-                    label: L10n.string("Restore"),
-                    title: viewModel.displayName(for: originalIdentifier),
-                    subtitle: originalIdentifier,
-                    systemImage: "arrow.uturn.backward"
-                )
+    @ViewBuilder
+    private var clockList: some View {
+        if viewModel.savedIdentifiers.isEmpty {
+            VStack(spacing: 6) {
+                Text(viewModel.localized("No saved time zones"))
+                    .font(.callout)
+                Text(viewModel.localized("Add time zones by searching"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 24)
+        } else {
+            List {
+                ForEach(viewModel.savedIdentifiers, id: \.self) { identifier in
+                    TimeZoneClockRow(
+                        identifier: identifier,
+                        title: viewModel.displayName(for: identifier),
+                        face: viewModel.clockFace(for: identifier),
+                        isSystem: identifier == viewModel.systemIdentifier,
+                        isHome: viewModel.isEnabled && identifier == viewModel.homeIdentifier,
+                        isPinned: pinnedIdentifier == identifier,
+                        canDelete: viewModel.canRemove(identifier),
+                        systemBadge: viewModel.localized("System"),
+                        homeBadge: viewModel.localized("Home"),
+                        isDisabled: viewModel.isWorking,
+                        setSystemTitle: viewModel.localized("Set as System Time Zone"),
+                        pinTitle: viewModel.localized("Show in Menu Bar"),
+                        renameTitle: viewModel.localized("Rename"),
+                        deleteTitle: viewModel.localized("Remove Time Zone"),
+                        onApply: { viewModel.apply(identifier) },
+                        onPin: { viewModel.pin(identifier) },
+                        onRename: {
+                            renameText = viewModel.displayName(for: identifier)
+                            renameIdentifier = identifier
+                        },
+                        onDelete: { viewModel.remove(identifier) }
+                    )
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+                .onMove { source, destination in
+                    viewModel.move(fromOffsets: source, toOffset: destination)
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
-        .padding(12)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
-    private var targetPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            TextField(L10n.string("Search time zones"), text: $viewModel.searchText)
+    private var pinnedIdentifier: String? {
+        if case .pinned(let identifier) = viewModel.menuBarMode {
+            return identifier
+        }
+        return nil
+    }
+
+    private var searchPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField(viewModel.localized("Search time zones"), text: $viewModel.searchText)
                 .textFieldStyle(.roundedBorder)
 
-            ScrollView {
-                LazyVStack(spacing: 4) {
-                    ForEach(viewModel.filteredEntries, id: \.identifier) { entry in
-                        TimeZoneRow(
-                            entry: entry,
-                            isSelected: entry.identifier == viewModel.targetIdentifier,
-                            isDisabled: viewModel.isWorking
-                        ) {
-                            viewModel.selectTarget(entry.identifier)
+            if !viewModel.filteredEntries.isEmpty {
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        ForEach(viewModel.filteredEntries, id: \.identifier) { entry in
+                            SearchResultRow(
+                                title: entry.displayName(locale: viewModel.appLanguage.locale),
+                                subtitle: viewModel.isSaved(entry.identifier)
+                                    ? viewModel.localized("Already added")
+                                    : entry.identifier,
+                                isSaved: viewModel.isSaved(entry.identifier),
+                                isDisabled: viewModel.isWorking
+                            ) {
+                                viewModel.add(entry.identifier)
+                                isAdding = false
+                            }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
+                .frame(maxHeight: 140)
             }
-            .frame(minHeight: 178, maxHeight: .infinity)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 
     @ViewBuilder
@@ -135,97 +180,180 @@ struct ControlPanelView: View {
             }
             .padding(10)
             .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
         }
     }
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: 4) {
             Button {
-                viewModel.refreshCurrentTimeZone()
+                isAdding.toggle()
+                if !isAdding {
+                    viewModel.searchText = ""
+                }
             } label: {
-                Label(L10n.string("Refresh"), systemImage: "arrow.clockwise")
+                Label(viewModel.localized("Add"), systemImage: "plus")
             }
-            .disabled(viewModel.isWorking)
             .buttonStyle(FooterButtonStyle())
 
-            Spacer()
+            if viewModel.isEnabled {
+                Button {
+                    viewModel.restore()
+                } label: {
+                    Label(viewModel.localized("Restore Home Time Zone"), systemImage: "arrow.uturn.backward")
+                }
+                .disabled(viewModel.isWorking)
+                .buttonStyle(FooterButtonStyle())
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                openWindow(id: "settings")
+                NSApp.activate(ignoringOtherApps: true)
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(FooterButtonStyle())
+            .help(viewModel.localized("Settings"))
 
             Button {
                 viewModel.quit()
             } label: {
-                Label(L10n.string("Quit"), systemImage: "power")
+                Image(systemName: "power")
             }
             .buttonStyle(FooterButtonStyle())
+            .help(viewModel.localized("Quit"))
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 11)
-        .padding(.bottom, 21)
-        .layoutPriority(1)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 16)
         .overlay(alignment: .top) {
             Divider()
         }
     }
 }
 
-private struct InfoRow: View {
-    let label: String
+private struct TimeZoneClockRow: View {
+    let identifier: String
     let title: String
-    let subtitle: String
-    let systemImage: String
+    let face: TimeZoneClockFace?
+    let isSystem: Bool
+    let isHome: Bool
+    let isPinned: Bool
+    let canDelete: Bool
+    let systemBadge: String
+    let homeBadge: String
+    let isDisabled: Bool
+    let setSystemTitle: String
+    let pinTitle: String
+    let renameTitle: String
+    let deleteTitle: String
+    let onApply: () -> Void
+    let onPin: () -> Void
+    let onRename: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-                .padding(.top, 2)
-
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 50, alignment: .leading)
-                .padding(.top, 2)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.callout)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Text(subtitle)
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(title)
+                        .font(.body)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if isSystem {
+                        Badge(title: systemBadge)
+                    }
+                    if isHome {
+                        Badge(title: homeBadge)
+                    }
+                }
+                Text(identifier)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 1) {
+                HStack(spacing: 4) {
+                    if isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    Text(face?.timeText ?? "—")
+                }
+                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .lineLimit(1)
+                if let dateText = face?.dateText {
+                    Text(dateText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            rowMenu
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(
+            isSystem ? Color.accentColor.opacity(0.12) : Color.clear,
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .contextMenu {
+            rowActions
+        }
+    }
+
+    private var rowMenu: some View {
+        Menu {
+            rowActions
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(isDisabled)
+    }
+
+    @ViewBuilder
+    private var rowActions: some View {
+        Button(setSystemTitle, action: onApply)
+        Button(pinTitle, action: onPin)
+        Button(renameTitle, action: onRename)
+        Button(deleteTitle, action: onDelete)
+            .disabled(!canDelete)
     }
 }
 
-private struct TimeZoneRow: View {
-    let entry: TimeZoneCatalogEntry
-    let isSelected: Bool
+private struct SearchResultRow: View {
+    let title: String
+    let subtitle: String
+    let isSaved: Bool
     let isDisabled: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.55))
+                Image(systemName: isSaved ? "checkmark.circle.fill" : "plus.circle")
+                    .foregroundStyle(isSaved ? Color.secondary : Color.accentColor)
                     .frame(width: 18)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(entry.displayName())
+                    Text(title)
                         .font(.callout)
-                        .foregroundStyle(.primary)
                         .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    Text(entry.identifier)
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -237,13 +365,23 @@ private struct TimeZoneRow: View {
             .contentShape(Rectangle())
             .padding(.horizontal, 8)
             .padding(.vertical, 7)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-            )
         }
         .buttonStyle(.plain)
-        .disabled(isDisabled)
+        .disabled(isDisabled || isSaved)
+    }
+}
+
+private struct Badge: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(.quaternary, in: Capsule())
+            .lineLimit(1)
     }
 }
 
@@ -260,11 +398,5 @@ private struct FooterButtonStyle: ButtonStyle {
                 configuration.isPressed ? Color.secondary.opacity(0.10) : Color.clear,
                 in: RoundedRectangle(cornerRadius: 7, style: .continuous)
             )
-    }
-}
-
-private enum L10n {
-    static func string(_ key: String) -> String {
-        NSLocalizedString(key, comment: "")
     }
 }

@@ -5,17 +5,12 @@ public protocol SystemTimeZoneServicing {
     func setTimeZone(identifier: String) throws
 }
 
-public protocol TimeZoneStateStoring: AnyObject {
-    var targetIdentifier: String { get set }
-    var originalIdentifier: String? { get set }
-    var isEnabled: Bool { get set }
-}
-
 public enum TimeZoneToolError: Error, LocalizedError, Equatable {
     case invalidTimeZoneIdentifier(String)
     case missingOriginalTimeZone
     case unableToReadCurrentTimeZone
     case commandFailed(String)
+    case cannotRemoveHomeTimeZone
 
     public var errorDescription: String? {
         switch self {
@@ -27,77 +22,8 @@ public enum TimeZoneToolError: Error, LocalizedError, Equatable {
             return "Could not read the current system time zone."
         case .commandFailed(let output):
             return output.isEmpty ? "The system time zone command failed." : output
-        }
-    }
-}
-
-public final class InMemoryTimeZoneStore: TimeZoneStateStoring {
-    public var targetIdentifier: String
-    public var originalIdentifier: String?
-    public var isEnabled: Bool
-
-    public init(
-        targetIdentifier: String,
-        originalIdentifier: String? = nil,
-        isEnabled: Bool = false
-    ) {
-        self.targetIdentifier = targetIdentifier
-        self.originalIdentifier = originalIdentifier
-        self.isEnabled = isEnabled
-    }
-}
-
-public final class TimeZoneToggleCoordinator {
-    private let store: TimeZoneStateStoring
-    private let system: SystemTimeZoneServicing
-
-    public init(store: TimeZoneStateStoring, system: SystemTimeZoneServicing) {
-        self.store = store
-        self.system = system
-    }
-
-    public func setEnabled(_ enabled: Bool) throws {
-        if enabled {
-            try enable()
-        } else {
-            try disable()
-        }
-    }
-
-    public func setTargetIdentifier(_ identifier: String) throws {
-        try Self.validate(identifier)
-        store.targetIdentifier = identifier
-
-        if store.isEnabled {
-            try system.setTimeZone(identifier: identifier)
-        }
-    }
-
-    private func enable() throws {
-        try Self.validate(store.targetIdentifier)
-
-        if !store.isEnabled {
-            store.originalIdentifier = try system.currentTimeZoneIdentifier()
-        }
-
-        try system.setTimeZone(identifier: store.targetIdentifier)
-        store.isEnabled = true
-    }
-
-    private func disable() throws {
-        guard let originalIdentifier = store.originalIdentifier else {
-            throw TimeZoneToolError.missingOriginalTimeZone
-        }
-
-        try Self.validate(originalIdentifier)
-        try system.setTimeZone(identifier: originalIdentifier)
-        store.isEnabled = false
-        store.originalIdentifier = nil
-    }
-
-    private static func validate(_ identifier: String) throws {
-        guard TimeZone(identifier: identifier) != nil else {
-            throw TimeZoneToolError.invalidTimeZoneIdentifier(identifier)
+        case .cannotRemoveHomeTimeZone:
+            return "The home time zone can't be removed while the override is active."
         }
     }
 }
@@ -170,35 +96,6 @@ public enum TimeZoneDisplayLocale {
             return .autoupdatingCurrent
         }
         return Locale(identifier: identifier)
-    }
-}
-
-public final class UserDefaultsTimeZoneStore: TimeZoneStateStoring {
-    private enum Key {
-        static let targetIdentifier = "targetIdentifier"
-        static let originalIdentifier = "originalIdentifier"
-        static let isEnabled = "isEnabled"
-    }
-
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    public var targetIdentifier: String {
-        get { defaults.string(forKey: Key.targetIdentifier) ?? "America/Los_Angeles" }
-        set { defaults.set(newValue, forKey: Key.targetIdentifier) }
-    }
-
-    public var originalIdentifier: String? {
-        get { defaults.string(forKey: Key.originalIdentifier) }
-        set { defaults.set(newValue, forKey: Key.originalIdentifier) }
-    }
-
-    public var isEnabled: Bool {
-        get { defaults.bool(forKey: Key.isEnabled) }
-        set { defaults.set(newValue, forKey: Key.isEnabled) }
     }
 }
 

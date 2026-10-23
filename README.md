@@ -30,10 +30,12 @@ Time Zone Switcher makes that workflow fast and reversible from the menu bar.
 ## Features
 
 - Menu bar only: no Dock icon.
-- Search and select any IANA time zone, such as `America/Los_Angeles`, `Europe/London`, or `Asia/Tokyo`.
+- Add several IANA time zones, such as `America/Los_Angeles` and `Asia/Shanghai`, and see each local time together.
+- Set any saved time zone as the system time zone. The first switch remembers the original time zone until you restore it.
+- Choose the menu bar clock: follow the system time zone, show only the icon, or pin one saved time zone.
+- Choose a time format from presets, including time only, abbreviation and time, a Chinese date, an English date, or a custom pattern. Seconds are optional.
+- Choose the interface language: follow the system, Simplified Chinese, or English. The language does not decide the clock pattern.
 - Localized time zone display names with the IANA identifier kept visible.
-- Toggle on to record the current system time zone and switch to the selected target.
-- Toggle off to restore the recorded original time zone.
 - Native SwiftUI controls and macOS material styling.
 
 ## Privacy and Security
@@ -41,7 +43,7 @@ Time Zone Switcher makes that workflow fast and reversible from the menu bar.
 - No analytics.
 - No network requests.
 - No background polling jobs.
-- Administrator permission is requested only when you toggle the override on or off.
+- Administrator permission is requested only when you change or restore the system time zone.
 - The system command used is:
 
 ```bash
@@ -89,7 +91,6 @@ Scripts/package_release.sh
 ## Roadmap
 
 - Favorite time zones.
-- Menu bar compact status.
 - Keyboard shortcuts.
 - Optional DMG packaging.
 - Optional notarized builds.
