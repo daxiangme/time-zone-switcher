@@ -23,6 +23,15 @@ if [ -d "$ROOT_DIR/Resources/Localizations" ]; then
   cp -R "$ROOT_DIR/Resources/Localizations/"* "$APP_DIR/Contents/Resources/"
 fi
 
+# Compiles the Icon Composer file into Assets.car (Liquid Glass icon) plus AppIcon.icns for older readers.
+xcrun actool "$ROOT_DIR/Resources/AppIcon.icon" \
+  --compile "$APP_DIR/Contents/Resources" \
+  --platform macosx \
+  --minimum-deployment-target 26.0 \
+  --app-icon AppIcon \
+  --output-partial-info-plist "$(mktemp -d)/AppIcon.plist" \
+  >/dev/null
+
 chmod 755 "$APP_DIR/Contents/MacOS/TimeZoneBar"
 codesign --force --sign - "$APP_DIR"
 

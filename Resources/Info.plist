@@ -8,6 +8,10 @@
 	<string>Time Zone Switcher</string>
 	<key>CFBundleExecutable</key>
 	<string>TimeZoneBar</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.local.timezone-switcher</string>
 	<key>CFBundleInfoDictionaryVersion</key>
