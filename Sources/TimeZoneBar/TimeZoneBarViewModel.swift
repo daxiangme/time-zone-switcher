@@ -14,12 +14,12 @@ final class TimeZoneBarViewModel: ObservableObject {
     @Published private(set) var customLabels: [String: String] = [:]
     @Published private(set) var isWorking = false
     @Published private(set) var now = Date()
-    @Published var searchText = ""
     @Published var errorMessage: String?
 
     private let store: TimeZoneStateStoring
     private let system: SystemTimeZoneServicing
     private let coordinator: WorldClockCoordinator
+    private var cachedPlaceIndex: (language: AppLanguage, index: TimeZonePlaceIndex)?
     nonisolated(unsafe) private var clockTimer: Timer?
     nonisolated(unsafe) private var notificationObservers: [any NSObjectProtocol] = []
 
@@ -33,6 +33,10 @@ final class TimeZoneBarViewModel: ObservableObject {
         refresh()
         observeSystemChanges()
         scheduleClockUpdate()
+        // Build the add picker's index after launch so the first "Add" opens without a pause.
+        DispatchQueue.main.async { [weak self] in
+            _ = self?.placeIndex
+        }
     }
 
     deinit {
@@ -44,12 +48,15 @@ final class TimeZoneBarViewModel: ObservableObject {
         }
     }
 
-    var filteredEntries: [TimeZoneCatalogEntry] {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
+    /// Every zone the add picker can offer, localized for the interface language.
+    /// Building it formats a few hundred names, so it is kept until the language changes.
+    var placeIndex: TimeZonePlaceIndex {
+        if let cached = cachedPlaceIndex, cached.language == appLanguage {
+            return cached.index
         }
-        let catalog = TimeZoneCatalog(locale: appLanguage.locale)
-        return Array(catalog.search(searchText).prefix(8))
+        let index = TimeZonePlaceIndex(locale: appLanguage.locale)
+        cachedPlaceIndex = (appLanguage, index)
+        return index
     }
 
     var previewIdentifier: String {
@@ -105,6 +112,14 @@ final class TimeZoneBarViewModel: ObservableObject {
         return TimeZoneCatalogEntry(identifier: identifier).localizedCityName(locale: appLanguage.locale)
     }
 
+    var systemDisplayName: String {
+        displayName(for: systemIdentifier)
+    }
+
+    var homeDisplayName: String? {
+        homeIdentifier.map(displayName(for:))
+    }
+
     var clockRows: [ClockRowModel] {
         ClockRowModel.rows(
             savedIdentifiers: savedIdentifiers,
@@ -117,6 +132,21 @@ final class TimeZoneBarViewModel: ObservableObject {
             format: timeDisplayFormat,
             interfaceLanguage: appLanguage
         )
+    }
+
+    /// The time and offset a zone would show if it were added, for the add picker.
+    func previewRow(for identifier: String) -> ClockRowModel? {
+        ClockRowModel.rows(
+            savedIdentifiers: [identifier],
+            systemIdentifier: systemIdentifier,
+            homeIdentifier: nil,
+            isEnabled: false,
+            menuBarMode: .automatic,
+            customLabels: [:],
+            at: now,
+            format: timeDisplayFormat,
+            interfaceLanguage: appLanguage
+        ).first
     }
 
     func isSaved(_ identifier: String) -> Bool {
@@ -168,7 +198,6 @@ final class TimeZoneBarViewModel: ObservableObject {
 
         do {
             try coordinator.add(identifier)
-            searchText = ""
             refresh()
         } catch {
             errorMessage = readableMessage(for: error)

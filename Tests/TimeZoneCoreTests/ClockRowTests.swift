@@ -64,6 +64,15 @@ final class ClockRowTests: XCTestCase {
         XCTAssertEqual(row.utcOffsetText, "UTC+5:30")
     }
 
+    func testRelativeHoursText() {
+        XCTAssertEqual(TimeZoneClock.relativeHoursText(seconds: 15 * 3600), "+15")
+        XCTAssertEqual(TimeZoneClock.relativeHoursText(seconds: -3 * 3600), "-3")
+        XCTAssertEqual(TimeZoneClock.relativeHoursText(seconds: 5 * 3600 + 30 * 60), "+5:30")
+        XCTAssertEqual(TimeZoneClock.relativeHoursText(seconds: -(9 * 3600 + 30 * 60)), "-9:30")
+        XCTAssertEqual(TimeZoneClock.relativeHoursText(seconds: 45 * 60), "+0:45")
+        XCTAssertEqual(TimeZoneClock.relativeHoursText(seconds: 0), "0")
+    }
+
     func testDaytimeFollowsLocalHour() {
         let result = rows(["Asia/Shanghai", "America/Los_Angeles"])
         XCTAssertEqual(result.map(\.isDaytime), [false, true])

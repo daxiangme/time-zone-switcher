@@ -28,35 +28,6 @@ public enum TimeZoneToolError: Error, LocalizedError, Equatable {
     }
 }
 
-public struct TimeZoneCatalog {
-    private let entries: [TimeZoneCatalogEntry]
-    private let locale: Locale
-
-    public init(
-        identifiers: [String] = TimeZone.knownTimeZoneIdentifiers,
-        locale: Locale = TimeZoneDisplayLocale.current
-    ) {
-        self.locale = locale
-        self.entries = identifiers
-            .map(TimeZoneCatalogEntry.init(identifier:))
-            .sorted { $0.identifier.localizedCaseInsensitiveCompare($1.identifier) == .orderedAscending }
-    }
-
-    public func search(_ query: String) -> [TimeZoneCatalogEntry] {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else {
-            return entries
-        }
-
-        return entries.filter { entry in
-            entry.identifier.localizedCaseInsensitiveContains(trimmedQuery)
-                || entry.displayName(locale: locale).localizedCaseInsensitiveContains(trimmedQuery)
-                || entry.cityName.localizedCaseInsensitiveContains(trimmedQuery)
-                || entry.regionName.localizedCaseInsensitiveContains(trimmedQuery)
-        }
-    }
-}
-
 public struct TimeZoneCatalogEntry: Equatable {
     public let identifier: String
 

@@ -53,9 +53,10 @@ private let languages: [(String, AppLanguage)] = [("zh", .simplifiedChinese), ("
 private let appearances: [(String, NSAppearance.Name)] = [("dark", .darkAqua), ("light", .aqua)]
 
 @MainActor
-private func render<V: View>(_ view: V, size: CGSize, appearance: NSAppearance.Name, to url: URL) throws {
+/// A nil height sizes the window to the view, like the menu bar popover does.
+private func render<V: View>(_ view: V, width: CGFloat, height: CGFloat? = nil, appearance: NSAppearance.Name, to url: URL) throws {
     let window = NSWindow(
-        contentRect: CGRect(origin: CGPoint(x: -10_000, y: -10_000), size: size),
+        contentRect: CGRect(origin: CGPoint(x: -10_000, y: -10_000), size: CGSize(width: width, height: height ?? 600)),
         styleMask: [.borderless],
         backing: .buffered,
         defer: false
@@ -63,11 +64,13 @@ private func render<V: View>(_ view: V, size: CGSize, appearance: NSAppearance.N
     window.appearance = NSAppearance(named: appearance)
     let host = NSHostingView(
         rootView: view
-            .frame(width: size.width, height: size.height)
+            .frame(width: width, height: height)
             .background(Color(nsColor: .windowBackgroundColor))
     )
-    host.frame = CGRect(origin: .zero, size: size)
     window.contentView = host
+    let size = CGSize(width: width, height: height ?? host.fittingSize.height)
+    window.setContentSize(size)
+    host.frame = CGRect(origin: .zero, size: size)
     window.orderFrontRegardless()
     RunLoop.main.run(until: Date().addingTimeInterval(0.6))
     host.layoutSubtreeIfNeeded()
@@ -99,12 +102,25 @@ MainActor.assumeIsolated {
                     let file = output.appendingPathComponent("panel-\(scenario.name)-\(languageCode)-\(appearanceName).png")
                     try render(
                         ControlPanelView(viewModel: viewModel),
-                        size: CGSize(width: 420, height: 520),
+                        width: ControlPanelView.width,
                         appearance: appearance,
                         to: file
                     )
                     print(file.path)
                 }
+
+                let pickerModel = TimeZoneBarViewModel(
+                    store: scenarios[0].store(language),
+                    system: FakeSystemTimeZoneService(identifier: scenarios[0].systemIdentifier)
+                )
+                let pickerFile = output.appendingPathComponent("add-\(languageCode)-\(appearanceName).png")
+                try render(
+                    AddTimeZoneView(viewModel: pickerModel) {},
+                    width: ControlPanelView.width,
+                    appearance: appearance,
+                    to: pickerFile
+                )
+                print(pickerFile.path)
 
                 let viewModel = TimeZoneBarViewModel(
                     store: scenarios[0].store(language),
@@ -113,7 +129,8 @@ MainActor.assumeIsolated {
                 let file = output.appendingPathComponent("settings-\(languageCode)-\(appearanceName).png")
                 try render(
                     SettingsView(viewModel: viewModel),
-                    size: CGSize(width: 560, height: 680),
+                    width: 560,
+                    height: 680,
                     appearance: appearance,
                     to: file
                 )

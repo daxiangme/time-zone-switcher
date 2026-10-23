@@ -110,6 +110,20 @@ public struct ClockRowModel: Equatable, Sendable, Identifiable {
 }
 
 extension TimeZoneClock {
+    /// Signed hour difference for display next to a unit: "+15", "-3", "+5:30", "-9:30".
+    /// Zero has no sign; callers usually show "same time" instead.
+    public static func relativeHoursText(seconds: Int) -> String {
+        guard seconds != 0 else { return "0" }
+        let sign = seconds > 0 ? "+" : "-"
+        let absolute = abs(seconds)
+        let hours = absolute / 3600
+        let minutes = (absolute % 3600) / 60
+        if minutes == 0 {
+            return "\(sign)\(hours)"
+        }
+        return String(format: "%@%d:%02d", sign, hours, minutes)
+    }
+
     static func dayOffset(at date: Date, in timeZone: TimeZone, from systemTimeZone: TimeZone) -> Int {
         var utc = Calendar(identifier: .gregorian)
         utc.timeZone = TimeZone(secondsFromGMT: 0)!

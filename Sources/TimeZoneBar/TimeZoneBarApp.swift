@@ -8,7 +8,6 @@ struct TimeZoneBarApp: App {
     var body: some Scene {
         MenuBarExtra {
             ControlPanelView(viewModel: viewModel)
-                .frame(width: 420, height: 520)
         } label: {
             MenuBarLabel(viewModel: viewModel)
         }
