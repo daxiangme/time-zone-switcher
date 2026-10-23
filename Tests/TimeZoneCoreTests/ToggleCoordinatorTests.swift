@@ -1,6 +1,7 @@
 import XCTest
 @testable import TimeZoneCore
 
+@MainActor
 final class WorldClockCoordinatorTests: XCTestCase {
     func testAddIgnoresDuplicateAndPreservesOrder() throws {
         let store = InMemoryTimeZoneStore()
@@ -23,12 +24,12 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertTrue(store.savedIdentifiers.isEmpty)
     }
 
-    func testFirstApplyRecordsHomeAndInsertsItAtFront() throws {
+    func testFirstApplyRecordsHomeAndInsertsItAtFront() async throws {
         let store = InMemoryTimeZoneStore(savedIdentifiers: ["America/Los_Angeles"])
         let system = FakeSystemTimeZone(currentIdentifier: "Asia/Shanghai")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.applySystemTimeZone("America/Los_Angeles")
+        try await coordinator.applySystemTimeZone("America/Los_Angeles")
 
         XCTAssertTrue(store.isEnabled)
         XCTAssertEqual(store.homeIdentifier, "Asia/Shanghai")
@@ -36,18 +37,18 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertEqual(system.setCalls, ["America/Los_Angeles"])
     }
 
-    func testFirstApplyKeepsExistingHomePosition() throws {
+    func testFirstApplyKeepsExistingHomePosition() async throws {
         let store = InMemoryTimeZoneStore(savedIdentifiers: ["America/Los_Angeles", "Asia/Shanghai"])
         let system = FakeSystemTimeZone(currentIdentifier: "Asia/Shanghai")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.applySystemTimeZone("America/Los_Angeles")
+        try await coordinator.applySystemTimeZone("America/Los_Angeles")
 
         XCTAssertEqual(store.homeIdentifier, "Asia/Shanghai")
         XCTAssertEqual(store.savedIdentifiers, ["America/Los_Angeles", "Asia/Shanghai"])
     }
 
-    func testSwitchingAgainKeepsHomeRecord() throws {
+    func testSwitchingAgainKeepsHomeRecord() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles", "Asia/Tokyo"],
             homeIdentifier: "Asia/Shanghai",
@@ -56,7 +57,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.applySystemTimeZone("Asia/Tokyo")
+        try await coordinator.applySystemTimeZone("Asia/Tokyo")
 
         XCTAssertTrue(store.isEnabled)
         XCTAssertEqual(store.homeIdentifier, "Asia/Shanghai")
@@ -64,7 +65,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertEqual(store.savedIdentifiers, ["Asia/Shanghai", "America/Los_Angeles", "Asia/Tokyo"])
     }
 
-    func testRestoreReturnsHomeAndKeepsList() throws {
+    func testRestoreReturnsHomeAndKeepsList() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles"],
             homeIdentifier: "Asia/Shanghai",
@@ -73,7 +74,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.restoreHomeTimeZone()
+        try await coordinator.restoreHomeTimeZone()
 
         XCTAssertFalse(store.isEnabled)
         XCTAssertNil(store.homeIdentifier)
@@ -81,7 +82,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertEqual(system.setCalls, ["Asia/Shanghai"])
     }
 
-    func testApplyingHomeWhileEnabledRestores() throws {
+    func testApplyingHomeWhileEnabledRestores() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles"],
             homeIdentifier: "Asia/Shanghai",
@@ -90,38 +91,38 @@ final class WorldClockCoordinatorTests: XCTestCase {
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.applySystemTimeZone("Asia/Shanghai")
+        try await coordinator.applySystemTimeZone("Asia/Shanghai")
 
         XCTAssertFalse(store.isEnabled)
         XCTAssertNil(store.homeIdentifier)
         XCTAssertEqual(system.currentIdentifier, "Asia/Shanghai")
     }
 
-    func testApplyingCurrentSystemZoneDoesNotEnableOverride() throws {
+    func testApplyingCurrentSystemZoneDoesNotEnableOverride() async throws {
         let store = InMemoryTimeZoneStore(savedIdentifiers: ["America/Los_Angeles"])
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.applySystemTimeZone("America/Los_Angeles")
+        try await coordinator.applySystemTimeZone("America/Los_Angeles")
 
         XCTAssertFalse(store.isEnabled)
         XCTAssertNil(store.homeIdentifier)
         XCTAssertTrue(system.setCalls.isEmpty)
     }
 
-    func testFailedApplyDoesNotRecordOverride() {
+    func testFailedApplyDoesNotRecordOverride() async {
         let store = InMemoryTimeZoneStore(savedIdentifiers: ["America/Los_Angeles"])
         let system = FakeSystemTimeZone(currentIdentifier: "Asia/Shanghai", failure: TimeZoneToolError.commandFailed("cancelled"))
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        XCTAssertThrowsError(try coordinator.applySystemTimeZone("America/Los_Angeles"))
+        await assertThrowsAsync(try await coordinator.applySystemTimeZone("America/Los_Angeles"))
         XCTAssertFalse(store.isEnabled)
         XCTAssertNil(store.homeIdentifier)
         XCTAssertEqual(store.savedIdentifiers, ["America/Los_Angeles"])
         XCTAssertEqual(system.currentIdentifier, "Asia/Shanghai")
     }
 
-    func testCannotRemoveHomeWhileOverrideIsActive() {
+    func testCannotRemoveHomeWhileOverrideIsActive() async {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles"],
             homeIdentifier: "Asia/Shanghai",
@@ -130,7 +131,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        XCTAssertThrowsError(try coordinator.remove("Asia/Shanghai")) { error in
+        await assertThrowsAsync(try await coordinator.remove("Asia/Shanghai")) { error in
             XCTAssertEqual(error as? TimeZoneToolError, .cannotRemoveHomeTimeZone)
         }
         XCTAssertEqual(store.savedIdentifiers, ["Asia/Shanghai", "America/Los_Angeles"])
@@ -138,7 +139,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertTrue(store.isEnabled)
     }
 
-    func testRemovingActiveSystemZoneRestoresBeforeDeleting() throws {
+    func testRemovingActiveSystemZoneRestoresBeforeDeleting() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles"],
             homeIdentifier: "Asia/Shanghai",
@@ -148,7 +149,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.remove("America/Los_Angeles")
+        try await coordinator.remove("America/Los_Angeles")
 
         XCTAssertEqual(system.setCalls, ["Asia/Shanghai"])
         XCTAssertEqual(system.currentIdentifier, "Asia/Shanghai")
@@ -158,7 +159,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertEqual(store.menuBarMode, .automatic)
     }
 
-    func testFailedRemovalOfSystemZoneKeepsList() {
+    func testFailedRemovalOfSystemZoneKeepsList() async {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles"],
             homeIdentifier: "Asia/Shanghai",
@@ -170,14 +171,14 @@ final class WorldClockCoordinatorTests: XCTestCase {
         )
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        XCTAssertThrowsError(try coordinator.remove("America/Los_Angeles"))
+        await assertThrowsAsync(try await coordinator.remove("America/Los_Angeles"))
         XCTAssertEqual(store.savedIdentifiers, ["Asia/Shanghai", "America/Los_Angeles"])
         XCTAssertTrue(store.isEnabled)
         XCTAssertEqual(store.homeIdentifier, "Asia/Shanghai")
         XCTAssertEqual(system.currentIdentifier, "America/Los_Angeles")
     }
 
-    func testRemovingPinnedZoneClearsPinWithoutChangingSystemZone() throws {
+    func testRemovingPinnedZoneClearsPinWithoutChangingSystemZone() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Shanghai", "America/Los_Angeles", "Asia/Tokyo"],
             homeIdentifier: "Asia/Shanghai",
@@ -187,7 +188,7 @@ final class WorldClockCoordinatorTests: XCTestCase {
         let system = FakeSystemTimeZone(currentIdentifier: "America/Los_Angeles")
         let coordinator = WorldClockCoordinator(store: store, system: system)
 
-        try coordinator.remove("Asia/Tokyo")
+        try await coordinator.remove("Asia/Tokyo")
 
         XCTAssertTrue(system.setCalls.isEmpty)
         XCTAssertEqual(system.currentIdentifier, "America/Los_Angeles")
@@ -196,26 +197,26 @@ final class WorldClockCoordinatorTests: XCTestCase {
         XCTAssertTrue(store.isEnabled)
     }
 
-    func testRemovingZoneClearsItsCustomLabel() throws {
+    func testRemovingZoneClearsItsCustomLabel() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Tokyo"],
             customLabels: ["Asia/Tokyo": "公司"]
         )
         let coordinator = WorldClockCoordinator(store: store, system: FakeSystemTimeZone(currentIdentifier: "Asia/Shanghai"))
 
-        try coordinator.remove("Asia/Tokyo")
+        try await coordinator.remove("Asia/Tokyo")
 
         XCTAssertNil(store.customLabels["Asia/Tokyo"])
     }
 
-    func testRemovingLastZoneReturnsMenuBarToAutomatic() throws {
+    func testRemovingLastZoneReturnsMenuBarToAutomatic() async throws {
         let store = InMemoryTimeZoneStore(
             savedIdentifiers: ["Asia/Tokyo"],
             menuBarMode: .pinned("Asia/Tokyo")
         )
         let coordinator = WorldClockCoordinator(store: store, system: FakeSystemTimeZone(currentIdentifier: "Asia/Shanghai"))
 
-        try coordinator.remove("Asia/Tokyo")
+        try await coordinator.remove("Asia/Tokyo")
 
         XCTAssertTrue(store.savedIdentifiers.isEmpty)
         XCTAssertEqual(store.menuBarMode, .automatic)
@@ -415,6 +416,21 @@ final class UserDefaultsTimeZoneStoreTests: XCTestCase {
     }
 }
 
+@MainActor
+private func assertThrowsAsync(
+    _ expression: @autoclosure () async throws -> Void,
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ handler: (Error) -> Void = { _ in }
+) async {
+    do {
+        try await expression()
+        XCTFail("Expected an error", file: file, line: line)
+    } catch {
+        handler(error)
+    }
+}
+
 private final class FakeSystemTimeZone: SystemTimeZoneServicing {
     var currentIdentifier: String
     var failure: Error?
@@ -435,5 +451,19 @@ private final class FakeSystemTimeZone: SystemTimeZoneServicing {
         }
         setCalls.append(identifier)
         currentIdentifier = identifier
+    }
+}
+
+final class LocalSystemTimeZoneServiceTests: XCTestCase {
+    func testDismissedAuthorizationIsReportedAsCancelled() {
+        XCTAssertEqual(
+            LocalSystemTimeZoneService.commandError(output: "0:136: execution error: User canceled. (-128)\n"),
+            .cancelled
+        )
+        XCTAssertEqual(
+            LocalSystemTimeZoneService.commandError(output: "0:136: execution error: 用户已取消。 (-128)"),
+            .cancelled
+        )
+        XCTAssertEqual(LocalSystemTimeZoneService.commandError(output: " systemsetup failed \n"), .commandFailed("systemsetup failed"))
     }
 }

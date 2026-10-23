@@ -65,3 +65,5 @@
 "Icon only caption" = "只显示图标。";
 "Format applies to list" = "弹出面板里的时间也使用相同的 12/24 小时制和秒设置。";
 "Show Icon Next to Time" = "时间旁显示图标";
+"The administrator authorization was cancelled." = "已取消管理员授权。";
+"Switching…" = "正在切换…";

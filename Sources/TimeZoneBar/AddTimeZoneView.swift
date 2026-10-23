@@ -42,12 +42,10 @@ struct AddTimeZoneView: View {
         HStack(spacing: 6) {
             Button(action: onClose) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 26, height: 26)
-                    .contentShape(Rectangle())
+                    .font(.system(size: 12, weight: .semibold))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .help(viewModel.localized("Back"))
 
             HStack(spacing: 6) {
@@ -82,12 +80,12 @@ struct AddTimeZoneView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 8)
-            .frame(height: 28)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .glassEffect(.regular, in: Capsule())
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Results

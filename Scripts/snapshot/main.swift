@@ -13,13 +13,18 @@ private final class FakeSystemTimeZoneService: SystemTimeZoneServicing {
     }
 
     func currentTimeZoneIdentifier() throws -> String { identifier }
-    func setTimeZone(identifier: String) throws { self.identifier = identifier }
+
+    /// Never finishes, like an authorization prompt nobody has answered yet.
+    func setTimeZone(identifier: String) async throws {
+        try await Task.sleep(for: .seconds(3600))
+    }
 }
 
 private struct Scenario {
     let name: String
     let systemIdentifier: String
     let store: (AppLanguage) -> InMemoryTimeZoneStore
+    var prepare: @MainActor (TimeZoneBarViewModel) -> Void = { _ in }
 }
 
 private let savedIdentifiers = [
@@ -46,7 +51,19 @@ private let scenarios = [
     },
     Scenario(name: "empty", systemIdentifier: "Asia/Shanghai") { language in
         InMemoryTimeZoneStore(appLanguage: language)
-    }
+    },
+    Scenario(
+        name: "switching",
+        systemIdentifier: "Asia/Shanghai",
+        store: { language in InMemoryTimeZoneStore(savedIdentifiers: savedIdentifiers, appLanguage: language) },
+        prepare: { $0.apply("Europe/London") }
+    ),
+    Scenario(
+        name: "added",
+        systemIdentifier: "Asia/Shanghai",
+        store: { language in InMemoryTimeZoneStore(savedIdentifiers: savedIdentifiers, appLanguage: language) },
+        prepare: { $0.add("Asia/Singapore") }
+    )
 ]
 
 private let languages: [(String, AppLanguage)] = [("zh", .simplifiedChinese), ("en", .english)]
@@ -99,6 +116,7 @@ MainActor.assumeIsolated {
                         store: scenario.store(language),
                         system: FakeSystemTimeZoneService(identifier: scenario.systemIdentifier)
                     )
+                    scenario.prepare(viewModel)
                     let file = output.appendingPathComponent("panel-\(scenario.name)-\(languageCode)-\(appearanceName).png")
                     try render(
                         ControlPanelView(viewModel: viewModel),

@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 import TimeZoneCore
 
 @MainActor
@@ -14,6 +15,10 @@ final class TimeZoneBarViewModel: ObservableObject {
     @Published private(set) var customLabels: [String: String] = [:]
     @Published private(set) var showsMenuBarIcon = true
     @Published private(set) var isWorking = false
+    /// The row waiting on a system time zone change, while the authorization prompt is up.
+    @Published private(set) var switchingIdentifier: String?
+    /// Briefly set after adding, so the list can point out the new row.
+    @Published private(set) var recentlyAddedIdentifier: String?
     @Published private(set) var now = Date()
     @Published var errorMessage: String?
 
@@ -198,14 +203,25 @@ final class TimeZoneBarViewModel: ObservableObject {
         do {
             try coordinator.add(identifier)
             refresh()
+            recentlyAddedIdentifier = identifier
+            Task {
+                try? await Task.sleep(for: .seconds(1.6))
+                if recentlyAddedIdentifier == identifier {
+                    withAnimation(.easeOut(duration: 0.4)) {
+                        recentlyAddedIdentifier = nil
+                    }
+                }
+            }
         } catch {
             errorMessage = readableMessage(for: error)
         }
     }
 
     func remove(_ identifier: String) {
-        perform {
-            try coordinator.remove(identifier)
+        // Removing the active system zone restores home first, which needs authorization.
+        let restoring = isEnabled && identifier == systemIdentifier
+        perform(switchingTo: restoring ? homeIdentifier : nil) { [coordinator] in
+            try await coordinator.remove(identifier)
         }
     }
 
@@ -216,14 +232,14 @@ final class TimeZoneBarViewModel: ObservableObject {
     }
 
     func apply(_ identifier: String) {
-        perform {
-            try coordinator.applySystemTimeZone(identifier)
+        perform(switchingTo: identifier) { [coordinator] in
+            try await coordinator.applySystemTimeZone(identifier)
         }
     }
 
     func restore() {
-        perform {
-            try coordinator.restoreHomeTimeZone()
+        perform(switchingTo: homeIdentifier) { [coordinator] in
+            try await coordinator.restoreHomeTimeZone()
         }
     }
 
@@ -248,21 +264,32 @@ final class TimeZoneBarViewModel: ObservableObject {
         NSApplication.shared.terminate(nil)
     }
 
-    private func perform(_ operation: () throws -> Void) {
+    /// Runs a change that may ask for administrator authorization. The popover keeps updating
+    /// while the prompt is up; `target` is the row that shows progress meanwhile.
+    private func perform(
+        switchingTo target: String?,
+        _ operation: @escaping @Sendable @MainActor () async throws -> Void
+    ) {
         guard !isWorking else { return }
 
         isWorking = true
+        switchingIdentifier = target
         errorMessage = nil
 
-        do {
-            try operation()
-            refresh()
-        } catch {
-            refresh()
-            errorMessage = readableMessage(for: error)
+        Task {
+            do {
+                try await operation()
+            } catch TimeZoneToolError.cancelled {
+                // Dismissing the authorization prompt just leaves everything as it was.
+            } catch {
+                errorMessage = readableMessage(for: error)
+            }
+            withAnimation(.snappy(duration: 0.3)) {
+                refresh()
+                isWorking = false
+                switchingIdentifier = nil
+            }
         }
-
-        isWorking = false
     }
 
     private func observeSystemChanges() {
@@ -346,6 +373,8 @@ final class TimeZoneBarViewModel: ObservableObject {
             return output.isEmpty ? localized("The system time zone command failed.") : output
         case .cannotRemoveHomeTimeZone:
             return localized("The home time zone can't be removed while the override is active.")
+        case .cancelled:
+            return localized("The administrator authorization was cancelled.")
         }
     }
 }

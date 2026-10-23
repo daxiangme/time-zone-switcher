@@ -1,8 +1,11 @@
 import Foundation
 
+/// Main-actor bound so callers can await `setTimeZone` without handing the service across threads;
+/// the real implementation waits for the authorization prompt without blocking the main thread.
+@MainActor
 public protocol SystemTimeZoneServicing {
     func currentTimeZoneIdentifier() throws -> String
-    func setTimeZone(identifier: String) throws
+    func setTimeZone(identifier: String) async throws
 }
 
 public enum TimeZoneToolError: Error, LocalizedError, Equatable {
@@ -11,6 +14,8 @@ public enum TimeZoneToolError: Error, LocalizedError, Equatable {
     case unableToReadCurrentTimeZone
     case commandFailed(String)
     case cannotRemoveHomeTimeZone
+    /// The user dismissed the administrator authorization prompt.
+    case cancelled
 
     public var errorDescription: String? {
         switch self {
@@ -24,6 +29,8 @@ public enum TimeZoneToolError: Error, LocalizedError, Equatable {
             return output.isEmpty ? "The system time zone command failed." : output
         case .cannotRemoveHomeTimeZone:
             return "The home time zone can't be removed while the override is active."
+        case .cancelled:
+            return "The administrator authorization was cancelled."
         }
     }
 }
@@ -107,28 +114,30 @@ public final class LocalSystemTimeZoneService: SystemTimeZoneServicing {
         throw TimeZoneToolError.unableToReadCurrentTimeZone
     }
 
-    public func setTimeZone(identifier: String) throws {
+    public func setTimeZone(identifier: String) async throws {
         guard TimeZone(identifier: identifier) != nil else {
             throw TimeZoneToolError.invalidTimeZoneIdentifier(identifier)
         }
 
         let command = "/usr/sbin/systemsetup -settimezone \(Self.shellQuoted(identifier))"
         let script = "do shell script \(Self.appleScriptQuoted(command)) with administrator privileges"
-        try Self.runProcess(executable: "/usr/bin/osascript", arguments: ["-e", script])
+        try await Self.runProcess(executable: "/usr/bin/osascript", arguments: ["-e", script])
     }
 
-    static func shellQuoted(_ value: String) -> String {
+    nonisolated static func shellQuoted(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
-    static func appleScriptQuoted(_ value: String) -> String {
+    nonisolated static func appleScriptQuoted(_ value: String) -> String {
         let escaped = value
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         return "\"\(escaped)\""
     }
 
-    private static func runProcess(executable: String, arguments: [String]) throws {
+    /// Suspends until the process exits instead of blocking a thread, so the UI keeps running
+    /// while the authorization prompt is up.
+    private nonisolated static func runProcess(executable: String, arguments: [String]) async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -137,13 +146,31 @@ public final class LocalSystemTimeZoneService: SystemTimeZoneServicing {
         process.standardOutput = pipe
         process.standardError = pipe
 
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-            throw TimeZoneToolError.commandFailed(output.trimmingCharacters(in: .whitespacesAndNewlines))
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            process.terminationHandler = { process in
+                guard process.terminationStatus != 0 else {
+                    continuation.resume()
+                    return
+                }
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                let output = String(data: data, encoding: .utf8) ?? ""
+                continuation.resume(throwing: commandError(output: output))
+            }
+            do {
+                try process.run()
+            } catch {
+                process.terminationHandler = nil
+                continuation.resume(throwing: error)
+            }
         }
+    }
+
+    /// osascript reports a dismissed authorization prompt as error -128 ("User canceled.").
+    nonisolated static func commandError(output: String) -> TimeZoneToolError {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.contains("(-128)") {
+            return .cancelled
+        }
+        return .commandFailed(trimmed)
     }
 }

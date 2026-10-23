@@ -18,6 +18,10 @@ struct ClockRowView: View {
     let row: ClockRowModel
     let isRenaming: Bool
     let isDisabled: Bool
+    /// Waiting on the authorization prompt to switch the system time zone to (or back to) this row.
+    let isSwitching: Bool
+    /// Just added; tinted for a moment so it's easy to spot.
+    let isHighlighted: Bool
     let localized: (String) -> String
     let onAction: (ClockRowAction) -> Void
 
@@ -33,7 +37,7 @@ struct ClockRowView: View {
                 titleLine
                 // The relative part stays whole; only the identifier gives way when space runs out.
                 HStack(spacing: 0) {
-                    Text(row.relativeText(localized: localized) + " · ")
+                    Text((isSwitching ? localized("Switching…") : row.relativeText(localized: localized)) + " · ")
                         .layoutPriority(1)
                     Text(row.identifier)
                         .truncationMode(.middle)
@@ -63,21 +67,38 @@ struct ClockRowView: View {
         .padding(.leading, 8)
         .padding(.trailing, 4)
         .frame(height: Self.height)
-        .background(
-            isHovering ? Color.primary.opacity(0.06) : Color.clear,
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-        )
+        .background(rowBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .help(row.hasCustomLabel ? "\(row.cityName) · \(row.identifier)" : row.identifier)
         .contextMenu { rowActions }
     }
 
+    private var rowBackground: Color {
+        if isHighlighted {
+            return Color.accentColor.opacity(0.18)
+        }
+        return isHovering ? Color.primary.opacity(0.06) : Color.clear
+    }
+
+    @ViewBuilder
     private var systemRadio: some View {
+        if isSwitching {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 18, height: 18)
+                .help(localized("Switching…"))
+        } else {
+            radioButton
+        }
+    }
+
+    private var radioButton: some View {
         Button {
             onAction(.setSystem)
         } label: {
             Image(systemName: row.isSystem ? "largecircle.fill.circle" : "circle")
+                .contentTransition(.symbolEffect(.replace))
                 .font(.system(size: 15))
                 .foregroundStyle(row.isSystem ? Color.accentColor : Color.secondary)
                 .frame(width: 18, height: 18)

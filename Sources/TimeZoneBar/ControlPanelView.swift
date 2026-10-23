@@ -16,23 +16,30 @@ struct ControlPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             if isAdding {
-                AddTimeZoneView(viewModel: viewModel) {
-                    isAdding = false
+                VStack(spacing: 0) {
+                    AddTimeZoneView(viewModel: viewModel) {
+                        isAdding = false
+                    }
+                    errorPanel
                 }
-                errorPanel
+                .transition(.push(from: .trailing))
             } else {
-                if viewModel.isEnabled {
-                    overrideBanner
+                VStack(spacing: 0) {
+                    if viewModel.isEnabled {
+                        overrideBanner
+                    }
+                    clockList
+                    errorPanel
+                    footer
                 }
-                clockList
-                errorPanel
-                footer
+                .transition(.push(from: .leading))
             }
         }
         .frame(width: Self.width)
+        .clipped()
         .background(.regularMaterial)
-        .animation(.snappy(duration: 0.2), value: viewModel.isEnabled)
-        .animation(.snappy(duration: 0.2), value: isAdding)
+        .animation(.snappy(duration: 0.3), value: viewModel.isEnabled)
+        .animation(.snappy(duration: 0.3), value: isAdding)
         .onAppear {
             viewModel.refresh()
         }
@@ -63,20 +70,31 @@ struct ControlPanelView: View {
 
             Spacer(minLength: 8)
 
-            Button(viewModel.localized("Restore")) {
+            Button {
                 viewModel.restore()
+            } label: {
+                if isRestoring {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    Text(viewModel.localized("Restore"))
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .buttonStyle(.glassProminent)
             .disabled(viewModel.isWorking)
             .help(viewModel.localized("Restore Home Time Zone"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 10)
         .padding(.top, 10)
         .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private var isRestoring: Bool {
+        viewModel.isWorking && viewModel.switchingIdentifier != nil
+            && viewModel.switchingIdentifier == viewModel.homeIdentifier
     }
 
     // MARK: - Clock list
@@ -87,33 +105,44 @@ struct ControlPanelView: View {
         if rows.isEmpty {
             emptyState
         } else {
-            List {
-                ForEach(rows) { row in
-                    ClockRowView(
-                        row: row,
-                        isRenaming: renamingIdentifier == row.identifier,
-                        isDisabled: viewModel.isWorking,
-                        localized: viewModel.localized
-                    ) { action in
-                        perform(action, on: row)
+            ScrollViewReader { proxy in
+                List {
+                    ForEach(rows) { row in
+                        ClockRowView(
+                            row: row,
+                            isRenaming: renamingIdentifier == row.identifier,
+                            isDisabled: viewModel.isWorking,
+                            isSwitching: viewModel.switchingIdentifier == row.identifier,
+                            isHighlighted: viewModel.recentlyAddedIdentifier == row.identifier,
+                            localized: viewModel.localized
+                        ) { action in
+                            perform(action, on: row)
+                        }
+                        .listRowInsets(EdgeInsets(
+                            top: Self.rowSpacing / 2,
+                            leading: 6,
+                            bottom: Self.rowSpacing / 2,
+                            trailing: 6
+                        ))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
-                    .listRowInsets(EdgeInsets(
-                        top: Self.rowSpacing / 2,
-                        leading: 6,
-                        bottom: Self.rowSpacing / 2,
-                        trailing: 6
-                    ))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .onMove { source, destination in
+                        viewModel.move(fromOffsets: source, toOffset: destination)
+                    }
                 }
-                .onMove { source, destination in
-                    viewModel.move(fromOffsets: source, toOffset: destination)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .contentMargins(.vertical, Self.listPadding, for: .scrollContent)
+                .frame(height: listHeight(rowCount: rows.count))
+                .animation(.snappy(duration: 0.3), value: rows.map(\.identifier))
+                .onAppear {
+                    // Coming back from the add picker: bring the new row into view.
+                    if let added = viewModel.recentlyAddedIdentifier {
+                        proxy.scrollTo(added)
+                    }
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .contentMargins(.vertical, Self.listPadding, for: .scrollContent)
-            .frame(height: listHeight(rowCount: rows.count))
         }
     }
 
@@ -182,66 +211,41 @@ struct ControlPanelView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 2) {
-            Button {
-                viewModel.errorMessage = nil
-                isAdding = true
-            } label: {
-                Label(viewModel.localized("Add Time Zone"), systemImage: "plus")
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                Button {
+                    viewModel.errorMessage = nil
+                    isAdding = true
+                } label: {
+                    Label(viewModel.localized("Add Time Zone"), systemImage: "plus")
+                }
+                .buttonStyle(.glass)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    openSettings()
+                    // A menu bar–only app isn't active, so the settings window would open behind others.
+                    NSApp.activate()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .help(viewModel.localized("Settings"))
+
+                Button {
+                    viewModel.quit()
+                } label: {
+                    Image(systemName: "power")
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .help(viewModel.localized("Quit"))
             }
-            .buttonStyle(FooterButtonStyle())
-
-            Spacer(minLength: 0)
-
-            Button {
-                openSettings()
-                // A menu bar–only app isn't active, so the settings window would open behind others.
-                NSApp.activate()
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(FooterButtonStyle())
-            .help(viewModel.localized("Settings"))
-
-            Button {
-                viewModel.quit()
-            } label: {
-                Image(systemName: "power")
-            }
-            .buttonStyle(FooterButtonStyle())
-            .help(viewModel.localized("Quit"))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .overlay(alignment: .top) {
-            Divider()
-        }
-    }
-}
-
-private struct FooterButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        FooterButton(configuration: configuration)
-    }
-
-    private struct FooterButton: View {
-        let configuration: ButtonStyleConfiguration
-        @Environment(\.isEnabled) private var isEnabled
-        @State private var isHovering = false
-
-        var body: some View {
-            configuration.label
-                .font(.callout)
-                .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
-                .labelStyle(.titleAndIcon)
-                .padding(.horizontal, 8)
-                .frame(minWidth: 28, minHeight: 28)
-                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .background(
-                    Color.primary.opacity(configuration.isPressed ? 0.12 : isHovering ? 0.06 : 0),
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-                .onHover { isHovering = $0 }
-        }
+        .padding(.horizontal, 10)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
     }
 }

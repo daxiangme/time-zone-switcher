@@ -327,6 +327,7 @@ public final class UserDefaultsTimeZoneStore: TimeZoneStateStoring {
     }
 }
 
+@MainActor
 public final class WorldClockCoordinator {
     private let store: TimeZoneStateStoring
     private let system: SystemTimeZoneServicing
@@ -342,7 +343,7 @@ public final class WorldClockCoordinator {
         store.savedIdentifiers.append(identifier)
     }
 
-    public func remove(_ identifier: String) throws {
+    public func remove(_ identifier: String) async throws {
         guard store.savedIdentifiers.contains(identifier) else { return }
 
         if store.isEnabled, store.homeIdentifier == identifier {
@@ -352,7 +353,7 @@ public final class WorldClockCoordinator {
         if store.isEnabled {
             let current = try system.currentTimeZoneIdentifier()
             if current == identifier {
-                try restoreHomeTimeZone()
+                try await restoreHomeTimeZone()
             }
         }
 
@@ -390,7 +391,7 @@ public final class WorldClockCoordinator {
         store.savedIdentifiers = items
     }
 
-    public func applySystemTimeZone(_ identifier: String) throws {
+    public func applySystemTimeZone(_ identifier: String) async throws {
         try Self.validate(identifier)
         let current = try system.currentTimeZoneIdentifier()
 
@@ -402,7 +403,7 @@ public final class WorldClockCoordinator {
         }
 
         if store.isEnabled, store.homeIdentifier == identifier {
-            try restoreHomeTimeZone()
+            try await restoreHomeTimeZone()
             return
         }
 
@@ -422,20 +423,20 @@ public final class WorldClockCoordinator {
             home = current
         }
 
-        try system.setTimeZone(identifier: identifier)
+        try await system.setTimeZone(identifier: identifier)
         store.savedIdentifiers = saved
         store.homeIdentifier = home
         store.isEnabled = true
     }
 
-    public func restoreHomeTimeZone() throws {
+    public func restoreHomeTimeZone() async throws {
         guard store.isEnabled else { return }
         guard let homeIdentifier = store.homeIdentifier else {
             throw TimeZoneToolError.missingOriginalTimeZone
         }
 
         try Self.validate(homeIdentifier)
-        try system.setTimeZone(identifier: homeIdentifier)
+        try await system.setTimeZone(identifier: homeIdentifier)
         store.isEnabled = false
         store.homeIdentifier = nil
     }
