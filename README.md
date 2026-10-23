@@ -1,3 +1,5 @@
+<img src="docs/assets/icon.png" width="128" alt="Time Zone Switcher app icon">
+
 # Time Zone Switcher
 
 [![CI](https://github.com/daxiangme/time-zone-switcher/actions/workflows/ci.yml/badge.svg)](https://github.com/daxiangme/time-zone-switcher/actions/workflows/ci.yml)

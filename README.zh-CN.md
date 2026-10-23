@@ -1,3 +1,5 @@
+<img src="docs/assets/icon.png" width="128" alt="时区切换器 App 图标">
+
 # 时区切换器
 
 [![CI](https://github.com/daxiangme/time-zone-switcher/actions/workflows/ci.yml/badge.svg)](https://github.com/daxiangme/time-zone-switcher/actions/workflows/ci.yml)
