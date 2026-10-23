@@ -14,7 +14,14 @@
 
 [下载最新版本](https://github.com/daxiangme/time-zone-switcher/releases/latest)
 
-![时区切换器截图](docs/assets/screenshot-zh-Hans.png)
+<p align="center">
+  <img src="docs/assets/screenshot-zh-Hans.png" width="380" alt="菜单栏弹出面板：已添加的时区和恢复横幅">
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-add-zh-Hans.png" width="300" alt="添加时区选择器">
+  <img src="docs/assets/screenshot-settings-en.png" width="300" alt="设置窗口">
+</p>
 
 ## 为什么需要它
 

@@ -14,7 +14,14 @@ Use it when you need to test calendar, schedule, subscription, localization, or 
 
 [Download the latest release](https://github.com/daxiangme/time-zone-switcher/releases/latest)
 
-![Time Zone Switcher screenshot](docs/assets/screenshot-en.png)
+<p align="center">
+  <img src="docs/assets/screenshot-en.png" width="380" alt="Menu bar popover with saved time zones and the restore banner">
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-add-zh-Hans.png" width="300" alt="Add time zone picker">
+  <img src="docs/assets/screenshot-settings-en.png" width="300" alt="Settings window">
+</p>
 
 ## Why It Exists
 
