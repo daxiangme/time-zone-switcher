@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MenuBarDisplayMode: Equatable, Sendable {
+public enum MenuBarDisplayMode: Hashable, Sendable {
     case automatic
     case icon
     case pinned(String)
@@ -162,6 +162,8 @@ public protocol TimeZoneStateStoring: AnyObject {
     var timeDisplayFormat: TimeDisplayFormat { get set }
     var appLanguage: AppLanguage { get set }
     var customLabels: [String: String] { get set }
+    /// Whether the clock icon sits next to the time in the menu bar. Icon-only mode always shows it.
+    var showsMenuBarIcon: Bool { get set }
 }
 
 public final class InMemoryTimeZoneStore: TimeZoneStateStoring {
@@ -172,6 +174,7 @@ public final class InMemoryTimeZoneStore: TimeZoneStateStoring {
     public var timeDisplayFormat: TimeDisplayFormat
     public var appLanguage: AppLanguage
     public var customLabels: [String: String]
+    public var showsMenuBarIcon: Bool
 
     public init(
         savedIdentifiers: [String] = [],
@@ -180,7 +183,8 @@ public final class InMemoryTimeZoneStore: TimeZoneStateStoring {
         menuBarMode: MenuBarDisplayMode = .automatic,
         timeDisplayFormat: TimeDisplayFormat = .standard,
         appLanguage: AppLanguage = .system,
-        customLabels: [String: String] = [:]
+        customLabels: [String: String] = [:],
+        showsMenuBarIcon: Bool = true
     ) {
         self.savedIdentifiers = savedIdentifiers
         self.homeIdentifier = homeIdentifier
@@ -189,6 +193,7 @@ public final class InMemoryTimeZoneStore: TimeZoneStateStoring {
         self.timeDisplayFormat = timeDisplayFormat
         self.appLanguage = appLanguage
         self.customLabels = customLabels
+        self.showsMenuBarIcon = showsMenuBarIcon
     }
 }
 
@@ -208,6 +213,7 @@ public final class UserDefaultsTimeZoneStore: TimeZoneStateStoring {
         static let customPattern = "customPattern"
         static let appLanguage = "appLanguage"
         static let customLabels = "customLabels"
+        static let showsMenuBarIcon = "showsMenuBarIcon"
     }
 
     private let defaults: UserDefaults
@@ -296,6 +302,11 @@ public final class UserDefaultsTimeZoneStore: TimeZoneStateStoring {
     public var customLabels: [String: String] {
         get { defaults.dictionary(forKey: Key.customLabels) as? [String: String] ?? [:] }
         set { defaults.set(newValue, forKey: Key.customLabels) }
+    }
+
+    public var showsMenuBarIcon: Bool {
+        get { defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.showsMenuBarIcon) }
     }
 
     private func migrateLegacyStateIfNeeded() {

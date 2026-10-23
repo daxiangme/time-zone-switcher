@@ -2,126 +2,145 @@ import SwiftUI
 import TimeZoneCore
 
 struct SettingsView: View {
+    static let width: CGFloat = 500
+
     @ObservedObject var viewModel: TimeZoneBarViewModel
     @State private var customPattern: String = ""
+    @State private var isShowingFormatHelp = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                preview
-                formatSection
-                languageSection
-                menuBarSection
+        Form {
+            Section(viewModel.localized("Menu Bar Display")) {
+                MenuBarPreview(
+                    iconName: viewModel.menuBarShowsIcon ? viewModel.menuBarIconName : nil,
+                    text: viewModel.menuBarTimeText,
+                    caption: previewCaption
+                )
+
+                Picker(viewModel.localized("Show"), selection: menuBarModeBinding) {
+                    Text(viewModel.localized("Automatic")).tag(MenuBarDisplayMode.automatic)
+                    Text(viewModel.localized("Icon Only")).tag(MenuBarDisplayMode.icon)
+                    if !viewModel.savedIdentifiers.isEmpty {
+                        Section(viewModel.localized("Always Show")) {
+                            ForEach(viewModel.savedIdentifiers, id: \.self) { identifier in
+                                Text(viewModel.displayName(for: identifier))
+                                    .tag(MenuBarDisplayMode.pinned(identifier))
+                            }
+                        }
+                    }
+                }
+
+                if viewModel.menuBarMode != .icon {
+                    Toggle(viewModel.localized("Show Icon Next to Time"), isOn: iconBinding)
+                }
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Section {
+                Picker(viewModel.localized("Time Format"), selection: presetBinding) {
+                    ForEach(ClockFormatPreset.allCases, id: \.self) { preset in
+                        FormatOption(
+                            sample: preset == .custom ? nil : sample(for: preset),
+                            title: viewModel.localized(preset.titleKey)
+                        )
+                        .tag(preset)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+
+                if viewModel.timeDisplayFormat.preset == .custom {
+                    customPatternField
+                }
+
+                Toggle(viewModel.localized("Show Seconds"), isOn: secondsBinding)
+            } header: {
+                Text(viewModel.localized("Time Format"))
+            } footer: {
+                Text(viewModel.localized("Format applies to list"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section(viewModel.localized("General")) {
+                Picker(viewModel.localized("Interface Language"), selection: languageBinding) {
+                    Text(viewModel.localized("Follow System")).tag(AppLanguage.system)
+                    Text(viewModel.localized("Simplified Chinese")).tag(AppLanguage.simplifiedChinese)
+                    Text(viewModel.localized("English")).tag(AppLanguage.english)
+                }
+            }
         }
-        .frame(minWidth: 520, minHeight: 620)
+        .formStyle(.grouped)
+        .scrollDisabled(true)
+        .frame(width: Self.width)
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             customPattern = viewModel.timeDisplayFormat.customPattern
         }
     }
 
-    private var preview: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(viewModel.menuBarPreview.isEmpty ? "—" : viewModel.menuBarPreview)
-                .font(.system(size: 34, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(2)
-                .minimumScaleFactor(0.6)
+    // MARK: - Menu bar
 
-            Text(previewCaption)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-    }
-
+    /// Says what the preview is and why, so "Automatic" showing only the icon isn't a surprise.
     private var previewCaption: String {
-        let name = viewModel.displayName(for: viewModel.previewIdentifier)
-        return "\(name) · \(viewModel.previewIdentifier)"
-    }
-
-    private var formatSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(viewModel.localized("Time Format"))
-                .font(.headline)
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(ClockFormatPreset.allCases, id: \.self) { preset in
-                    FormatCard(
-                        title: viewModel.localized(preset.titleKey),
-                        sample: sample(for: preset),
-                        pattern: preset == .custom ? viewModel.localized("Custom Pattern") : preset.basePattern,
-                        isSelected: viewModel.timeDisplayFormat.preset == preset
-                    ) {
-                        select(preset)
-                    }
-                }
+        guard let identifier = viewModel.menuBarIdentifier else {
+            if case .automatic = viewModel.menuBarMode {
+                return viewModel.localized("Automatic caption idle")
             }
-
-            Toggle(viewModel.localized("Show Seconds"), isOn: secondsBinding)
-                .toggleStyle(.switch)
-
-            if viewModel.timeDisplayFormat.preset == .custom {
-                TextField(viewModel.localized("Custom Pattern"), text: $customPattern)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { commitCustomPattern() }
-                    .onChange(of: customPattern) { _, newValue in
-                        var format = viewModel.timeDisplayFormat
-                        format.customPattern = newValue
-                        viewModel.setTimeDisplayFormat(format)
-                    }
-            }
-
-            Text(viewModel.localized("Format Help"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            return viewModel.localized("Icon only caption")
         }
+        return "\(viewModel.displayName(for: identifier)) · \(identifier)"
     }
 
-    private var languageSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(viewModel.localized("Interface Language"))
-                .font(.headline)
-
-            Picker(viewModel.localized("Interface Language"), selection: languageBinding) {
-                Text(viewModel.localized("Follow System")).tag(AppLanguage.system)
-                Text(viewModel.localized("Simplified Chinese")).tag(AppLanguage.simplifiedChinese)
-                Text(viewModel.localized("English")).tag(AppLanguage.english)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        }
+    private var iconBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.showsMenuBarIcon },
+            set: { viewModel.setShowsMenuBarIcon($0) }
+        )
     }
 
-    private var menuBarSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(viewModel.localized("Menu Bar Display"))
-                .font(.headline)
+    private var menuBarModeBinding: Binding<MenuBarDisplayMode> {
+        Binding(
+            get: { viewModel.menuBarMode },
+            set: { viewModel.setMenuBarMode($0) }
+        )
+    }
 
-            if case .pinned(let identifier) = viewModel.menuBarMode {
-                Text(String(format: viewModel.localized("Pinned to %@"), viewModel.displayName(for: identifier)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    // MARK: - Format
+
+    private var customPatternField: some View {
+        HStack(spacing: 6) {
+            TextField(
+                viewModel.localized("Custom Pattern"),
+                text: $customPattern,
+                prompt: Text(verbatim: "HH:mm")
+            )
+            .font(.body.monospaced())
+            .onChange(of: customPattern) { _, newValue in
+                var format = viewModel.timeDisplayFormat
+                format.customPattern = newValue
+                viewModel.setTimeDisplayFormat(format)
             }
 
-            Picker(viewModel.localized("Menu Bar Display"), selection: menuBarModeBinding) {
-                Text(viewModel.localized("Automatic")).tag(MenuBarModeChoice.automatic)
-                Text(viewModel.localized("Icon Only")).tag(MenuBarModeChoice.icon)
+            Button {
+                isShowingFormatHelp.toggle()
+            } label: {
+                Image(systemName: "questionmark.circle")
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            .buttonStyle(.borderless)
+            .help(viewModel.localized("Format Help"))
+            .popover(isPresented: $isShowingFormatHelp, arrowEdge: .trailing) {
+                Text(viewModel.localized("Format Help"))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 260)
+                    .padding(12)
+            }
         }
     }
 
     private func sample(for preset: ClockFormatPreset) -> String {
         var format = viewModel.timeDisplayFormat
         format.preset = preset
-        if preset != .custom {
-            format.customPattern = ""
-        }
         return TimeZoneClock.menuBarText(
             identifier: viewModel.previewIdentifier,
             at: viewModel.now,
@@ -130,20 +149,18 @@ struct SettingsView: View {
         ) ?? preset.basePattern
     }
 
-    private func select(_ preset: ClockFormatPreset) {
-        var format = viewModel.timeDisplayFormat
-        format.preset = preset
-        if preset == .custom, format.customPattern.isEmpty {
-            format.customPattern = customPattern
-        }
-        viewModel.setTimeDisplayFormat(format)
-    }
-
-    private func commitCustomPattern() {
-        var format = viewModel.timeDisplayFormat
-        format.preset = .custom
-        format.customPattern = customPattern
-        viewModel.setTimeDisplayFormat(format)
+    private var presetBinding: Binding<ClockFormatPreset> {
+        Binding(
+            get: { viewModel.timeDisplayFormat.preset },
+            set: { preset in
+                var format = viewModel.timeDisplayFormat
+                format.preset = preset
+                if preset == .custom, format.customPattern.isEmpty {
+                    format.customPattern = customPattern
+                }
+                viewModel.setTimeDisplayFormat(format)
+            }
+        )
     }
 
     private var secondsBinding: Binding<Bool> {
@@ -163,79 +180,74 @@ struct SettingsView: View {
             set: { viewModel.setAppLanguage($0) }
         )
     }
+}
 
-    private var menuBarModeBinding: Binding<MenuBarModeChoice> {
-        Binding(
-            get: {
-                switch viewModel.menuBarMode {
-                case .icon:
-                    return .icon
-                case .automatic:
-                    return .automatic
-                case .pinned:
-                    return .pinned
+/// A strip that looks like the right end of the menu bar, with this app's item highlighted.
+private struct MenuBarPreview: View {
+    let iconName: String?
+    let text: String?
+    let caption: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                Spacer(minLength: 0)
+                Image(systemName: "wifi")
+                    .foregroundStyle(.tertiary)
+                Image(systemName: "battery.75percent")
+                    .foregroundStyle(.tertiary)
+                HStack(spacing: 5) {
+                    if let iconName {
+                        Image(systemName: iconName)
+                    }
+                    if let text {
+                        Text(text)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    }
                 }
-            },
-            set: { choice in
-                switch choice {
-                case .automatic:
-                    viewModel.setMenuBarMode(.automatic)
-                case .icon:
-                    viewModel.setMenuBarMode(.icon)
-                case .pinned:
-                    break
-                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                Image(systemName: "switch.2")
+                    .foregroundStyle(.tertiary)
             }
-        )
+            .font(.system(size: 13, weight: .medium))
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .frame(maxWidth: .infinity)
+            .background(.bar, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08))
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(text ?? caption)
+
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+        .padding(.vertical, 4)
     }
 }
 
-private enum MenuBarModeChoice: Hashable {
-    case automatic
-    case icon
-    case pinned
-}
-
-private struct FormatCard: View {
+private struct FormatOption: View {
+    let sample: String?
     let title: String
-    let sample: String
-    let pattern: String
-    let isSelected: Bool
-    let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(title)
-                        .font(.callout.weight(.medium))
-                    Spacer(minLength: 0)
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
+        HStack(spacing: 8) {
+            if let sample {
                 Text(sample.isEmpty ? "—" : sample)
-                    .font(.body.monospacedDigit())
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-                Text(pattern)
-                    .font(.caption.monospaced())
+                    .monospacedDigit()
+                Text(title)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04),
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1)
+            } else {
+                Text(title)
             }
         }
-        .buttonStyle(.plain)
     }
 }
 

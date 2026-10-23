@@ -2,14 +2,12 @@
 "Menu Bar Display" = "Menu bar";
 "Automatic" = "Automatic";
 "Icon Only" = "Icon only";
-"Pinned to %@" = "Pinned to %@";
 "Set as System Time Zone" = "Set as System Time Zone";
 "Show in Menu Bar" = "Show in Menu Bar";
 "Remove Time Zone" = "Remove Time Zone";
 "Rename" = "Rename";
 "Settings" = "Settings";
 "Home" = "Home";
-"Search time zones" = "Search time zones";
 "No saved time zones" = "No time zones yet";
 "Add time zones by searching" = "Search to add a time zone.";
 "Already added" = "Already added";
@@ -60,3 +58,10 @@
 "Area Antarctica" = "Antarctica";
 "Area Arctic" = "Arctic";
 "Area Other" = "Other";
+"Show" = "Show";
+"Always Show" = "Always Show";
+"General" = "General";
+"Automatic caption idle" = "Automatic: only the icon until you switch the system time zone, then that zone's time.";
+"Icon only caption" = "Only the icon is shown.";
+"Format applies to list" = "The popover list uses the same 12/24-hour clock and seconds setting.";
+"Show Icon Next to Time" = "Show Icon Next to Time";

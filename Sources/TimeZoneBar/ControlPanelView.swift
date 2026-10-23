@@ -9,7 +9,7 @@ struct ControlPanelView: View {
     private static let listPadding: CGFloat = 6
 
     @ObservedObject var viewModel: TimeZoneBarViewModel
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var isAdding = false
     @State private var renamingIdentifier: String?
 
@@ -194,8 +194,9 @@ struct ControlPanelView: View {
             Spacer(minLength: 0)
 
             Button {
-                openWindow(id: "settings")
-                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+                // A menu bar–only app isn't active, so the settings window would open behind others.
+                NSApp.activate()
             } label: {
                 Image(systemName: "gearshape")
             }

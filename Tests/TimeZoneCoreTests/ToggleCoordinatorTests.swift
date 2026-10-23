@@ -331,6 +331,14 @@ final class UserDefaultsTimeZoneStoreTests: XCTestCase {
         XCTAssertEqual(store.timeDisplayFormat, .standard)
         XCTAssertEqual(store.appLanguage, .system)
         XCTAssertTrue(store.customLabels.isEmpty)
+        XCTAssertTrue(store.showsMenuBarIcon)
+    }
+
+    func testMenuBarIconPreferenceRoundTrips() {
+        let store = UserDefaultsTimeZoneStore(defaults: defaults)
+        store.showsMenuBarIcon = false
+
+        XCTAssertFalse(UserDefaultsTimeZoneStore(defaults: defaults).showsMenuBarIcon)
     }
 
     func testTimeDisplayFormatRoundTrips() {

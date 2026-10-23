@@ -129,8 +129,7 @@ MainActor.assumeIsolated {
                 let file = output.appendingPathComponent("settings-\(languageCode)-\(appearanceName).png")
                 try render(
                     SettingsView(viewModel: viewModel),
-                    width: 560,
-                    height: 680,
+                    width: SettingsView.width,
                     appearance: appearance,
                     to: file
                 )

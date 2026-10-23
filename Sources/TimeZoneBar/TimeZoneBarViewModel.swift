@@ -12,6 +12,7 @@ final class TimeZoneBarViewModel: ObservableObject {
     @Published private(set) var timeDisplayFormat: TimeDisplayFormat = .standard
     @Published private(set) var appLanguage: AppLanguage = .system
     @Published private(set) var customLabels: [String: String] = [:]
+    @Published private(set) var showsMenuBarIcon = true
     @Published private(set) var isWorking = false
     @Published private(set) var now = Date()
     @Published var errorMessage: String?
@@ -59,30 +60,8 @@ final class TimeZoneBarViewModel: ObservableObject {
         return index
     }
 
-    var previewIdentifier: String {
-        switch MenuBarDisplayResolver.presentation(
-            mode: menuBarMode,
-            isEnabled: isEnabled,
-            systemIdentifier: systemIdentifier,
-            savedIdentifiers: savedIdentifiers
-        ) {
-        case .time(let identifier):
-            return identifier
-        case .icon:
-            return savedIdentifiers.first ?? systemIdentifier
-        }
-    }
-
-    var menuBarPreview: String {
-        TimeZoneClock.menuBarText(
-            identifier: previewIdentifier,
-            at: now,
-            format: timeDisplayFormat,
-            interfaceLanguage: appLanguage
-        ) ?? ""
-    }
-
-    var menuBarTimeText: String? {
+    /// The zone whose time is in the menu bar right now, or nil when only the icon shows.
+    var menuBarIdentifier: String? {
         switch MenuBarDisplayResolver.presentation(
             mode: menuBarMode,
             isEnabled: isEnabled,
@@ -92,12 +71,26 @@ final class TimeZoneBarViewModel: ObservableObject {
         case .icon:
             return nil
         case .time(let identifier):
-            return formattedClockText(for: identifier)
+            return identifier
         }
+    }
+
+    /// The zone the settings window renders format samples with, even while the menu bar shows only the icon.
+    var previewIdentifier: String {
+        menuBarIdentifier ?? savedIdentifiers.first ?? systemIdentifier
+    }
+
+    var menuBarTimeText: String? {
+        menuBarIdentifier.flatMap(formattedClockText(for:))
     }
 
     var menuBarIconName: String {
         isEnabled ? "clock.badge.checkmark" : "clock"
+    }
+
+    /// Without a time the icon is all there is, so the preference only applies next to text.
+    var menuBarShowsIcon: Bool {
+        menuBarTimeText == nil || showsMenuBarIcon
     }
 
     func localized(_ key: String) -> String {
@@ -162,6 +155,7 @@ final class TimeZoneBarViewModel: ObservableObject {
         timeDisplayFormat = store.timeDisplayFormat
         appLanguage = store.appLanguage
         customLabels = store.customLabels
+        showsMenuBarIcon = store.showsMenuBarIcon
         now = Date()
     }
 
@@ -173,6 +167,11 @@ final class TimeZoneBarViewModel: ObservableObject {
         if secondsChanged {
             scheduleClockUpdate()
         }
+    }
+
+    func setShowsMenuBarIcon(_ shows: Bool) {
+        store.showsMenuBarIcon = shows
+        showsMenuBarIcon = shows
     }
 
     func setAppLanguage(_ language: AppLanguage) {

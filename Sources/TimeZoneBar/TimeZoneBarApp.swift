@@ -13,12 +13,10 @@ struct TimeZoneBarApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window(viewModel.localized("Settings"), id: "settings") {
+        Settings {
             SettingsView(viewModel: viewModel)
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 560, height: 680)
-        .defaultLaunchBehavior(.suppressed)
     }
 }
 
@@ -26,11 +24,14 @@ private struct MenuBarLabel: View {
     @ObservedObject var viewModel: TimeZoneBarViewModel
 
     var body: some View {
-        if let timeText = viewModel.menuBarTimeText {
-            Text(timeText)
-                .font(.system(.body, design: .rounded).monospacedDigit())
-        } else {
-            Image(systemName: viewModel.menuBarIconName)
+        HStack(spacing: 4) {
+            if viewModel.menuBarShowsIcon {
+                Image(systemName: viewModel.menuBarIconName)
+            }
+            if let timeText = viewModel.menuBarTimeText {
+                Text(timeText)
+                    .font(.system(.body, design: .rounded).monospacedDigit())
+            }
         }
     }
 }
